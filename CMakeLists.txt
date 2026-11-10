@@ -12,6 +12,9 @@ project(
 add_executable(
     profiler
     src/main.cpp
+    include/profiler/ProcessResult.h
+    include/profiler/ProcessLauncher.h
+    src/ProcessLauncher.cpp
 )
 
 # Include directory.
