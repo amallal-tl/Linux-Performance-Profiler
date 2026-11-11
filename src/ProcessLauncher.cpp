@@ -11,14 +11,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-namespace Profiler
+namespace profiler
 {
     ProcessResult ProcessLauncher::run(
         const std::string& executable,
-        const std::vector<std::string& arguments
+        const std::vector<std::string>& arguments
     ) const 
     {
-        if(executable.empty() || argument.empty()){
+        if(executable.empty() || arguments.empty()){
             throw std::invalid_argument(
                 "Executables and arguments must not be empty"
             );
@@ -30,7 +30,7 @@ namespace Profiler
 
         for(const std::string& argument : arguments)
         {
-            argv.push_back(const_cast<char*>(arguments.c_str()));
+            argv.push_back(const_cast<char*>(argument.c_str()));
         }
 
         // execvp() expects the argument array to end with nullptr.
@@ -62,7 +62,7 @@ namespace Profiler
 
         do{
             waitResult = wait4(childPid, &status, 0, &usage);
-        } while(waitResult == -1 && errorno == EINTR);
+        } while(waitResult == -1 && errno == EINTR);
 
         if (waitResult == -1)
         {
