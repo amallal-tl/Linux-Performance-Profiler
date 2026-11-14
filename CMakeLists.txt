@@ -15,6 +15,7 @@ add_executable(
     include/profiler/ProcessResult.h
     include/profiler/ProcessLauncher.h
     src/ProcessLauncher.cpp
+    include/profiler/FileDescriptor.h
 )
 
 # Include directory.
