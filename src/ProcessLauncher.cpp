@@ -1,13 +1,13 @@
 
 #include "profiler/ProcessLauncher.h"
+#include "profiler/FileDescriptor.h"
 
 #include <cerrno>
 #include <chrono>
-#include <cstdio>
-#include <cstring>
 #include <stdexcept>
 #include <system_error>
 #include <vector>
+#include <cstddef>
 
 #include <fcntl.h>
 #include <sys/resource.h>
@@ -30,7 +30,7 @@ ProcessResult ProcessLauncher::run(
         );
     }
 
-    // Create writable argument buffers for execvp().
+    // Prepare writable argument buffers before fork().
     std::vector<std::vector<char>> argumentBuffers;
 
     for (const std::string& argument : arguments)
@@ -43,7 +43,7 @@ ProcessResult ProcessLauncher::run(
         argumentBuffers.back().push_back('\0');
     }
 
-    // Create the char* argument array.
+    // Build the argv array required by execvp().
     std::vector<char*> argv;
 
     for (std::vector<char>& buffer : argumentBuffers)
@@ -58,24 +58,30 @@ ProcessResult ProcessLauncher::run(
 
     if (pipe2(pipeFd, O_CLOEXEC) == -1)
     {
+        const int error = errno;
+
         throw std::system_error(
-            errno,
+            error,
             std::generic_category(),
             "pipe2 failed"
         );
     }
+
+    // Transfer ownership of both descriptors to RAII objects.
+    FileDescriptor readEnd(pipeFd[0]);
+    FileDescriptor writeEnd(pipeFd[1]);
 
     const auto startTime = std::chrono::steady_clock::now();
 
     // Create the child process.
     const pid_t childPid = fork();
 
-    if (childPid == -1)//child process creation failed
+    if (childPid == -1)
     {
         const int error = errno;
 
-        close(pipeFd[0]);//Close read
-        close(pipeFd[1]);//Close write
+        // No manual close required.
+        // Both FileDescriptor destructors run during exception unwinding.
 
         throw std::system_error(
             error,
@@ -84,11 +90,12 @@ ProcessResult ProcessLauncher::run(
         );
     }
 
-    if (childPid == 0)//Child creation success
+    if (childPid == 0)
     {
         // Child process.
 
-        close(pipeFd[0]);//Close read
+        // Child only needs the write end.
+        readEnd.reset();
 
         execvp(executable.c_str(), argv.data());
 
@@ -104,7 +111,7 @@ ProcessResult ProcessLauncher::run(
         while (bytesWritten < sizeof(execError))
         {
             const ssize_t count = write(
-                pipeFd[1],
+                writeEnd.get(),
                 errorData + bytesWritten,
                 sizeof(execError) - bytesWritten
             );
@@ -123,14 +130,16 @@ ProcessResult ProcessLauncher::run(
             }
         }
 
-        close(pipeFd[1]);//Close write
+        // Close the child's write descriptor.
+        writeEnd.reset();
 
         _exit(127);
     }
 
     // Parent process.
 
-    close(pipeFd[1]);//Close write
+    // Parent only needs the read end.
+    writeEnd.reset();
 
     int execError = 0;
     std::size_t bytesRead = 0;
@@ -139,7 +148,7 @@ ProcessResult ProcessLauncher::run(
     while (bytesRead < sizeof(execError))
     {
         const ssize_t count = read(
-            pipeFd[0],
+            readEnd.get(),
             reinterpret_cast<char*>(&execError) + bytesRead,
             sizeof(execError) - bytesRead
         );
@@ -159,20 +168,23 @@ ProcessResult ProcessLauncher::run(
         else
         {
             const int error = errno;
-            close(pipeFd[0]);
 
             // Reap the child before reporting the read failure.
             int ignoredStatus = 0;
             struct rusage ignoredUsage {};
 
-            while (wait4(
-                childPid,
-                &ignoredStatus,
-                0,
-                &ignoredUsage
-            ) == -1 && errno == EINTR)
+            pid_t waitResult;
+
+            do
             {
+                waitResult = wait4(
+                    childPid,
+                    &ignoredStatus,
+                    0,
+                    &ignoredUsage
+                );
             }
+            while (waitResult == -1 && errno == EINTR);
 
             throw std::system_error(
                 error,
@@ -182,7 +194,9 @@ ProcessResult ProcessLauncher::run(
         }
     }
 
-    close(pipeFd[0]);
+    // Close the parent's read descriptor.
+    // If an exception occurs before this point, RAII handles cleanup.
+    readEnd.reset();
 
     // Collect the child's termination status and resource usage.
     int status = 0;
@@ -198,8 +212,10 @@ ProcessResult ProcessLauncher::run(
 
     if (waitResult == -1)
     {
+        const int error = errno;
+
         throw std::system_error(
-            errno,
+            error,
             std::generic_category(),
             "wait4 failed"
         );
