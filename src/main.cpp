@@ -1,3 +1,4 @@
+
 #include <iostream>
 #include <exception>
 #include <vector>
@@ -11,10 +12,8 @@ int main()
     {
         profiler::ProcessLauncher launcher;
 
-        //const std::string executable = "/usr/bin/sleep";
+        const std::string executable = "/usr/bin/sleep";
 
-        const std::string executable = "/usr/bin/does-not-exist";
-        
         const std::vector<std::string> arguments = {
             "sleep",
             "3"
