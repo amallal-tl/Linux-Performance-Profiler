@@ -92,8 +92,10 @@ namespace {
 
         std::cout << "PASSED : TestInvalidProcess\n\n";
     }
+}
 
     int main(){
+
         try{
             testReadCurrentProcess();
 
@@ -106,4 +108,3 @@ namespace {
     
         return 1;
     }
-}

@@ -9,7 +9,7 @@ namespace profiler{
     ProcessMetrics ProcfsReader::readProcessMetrics(pid_t pid) const
     {
         // Step 1: Construct the procfs file path.
-        const std::string filePath = "/proc" + std::to_string(pid) + "/stat";
+        const std::string filePath = "/proc/" + std::to_string(pid) + "/stat";
 
         //Step 2: Open the file
         std::ifstream file(filePath);
