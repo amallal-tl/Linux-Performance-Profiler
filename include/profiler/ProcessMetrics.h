@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <sys/types.h>
+#include <chrono>
 
 namespace profiler
 {
@@ -25,6 +26,8 @@ struct ProcessMetrics
 
     std::uint64_t virtualMemoryBytes = 0;
     std::int64_t residentPages = 0;
+
+    std::chrono::steady_clock::time_point timestamp;
 };
 
 }
