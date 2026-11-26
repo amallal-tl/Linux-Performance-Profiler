@@ -102,6 +102,7 @@ namespace {
             testInvalidProcess();
 
             std::cout << "All tests Passed\n\n";
+            return 0;
         } catch (const std::runtime_error& exception){
             std::cerr << "TEST Failure " << exception.what() << std::endl;
         }

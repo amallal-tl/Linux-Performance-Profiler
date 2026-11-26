@@ -16,6 +16,7 @@ add_library(
     profiler_core
     src/ProcessLauncher.cpp
     src/ProcfsReader.cpp
+    src/ProcessMonitor.cpp
 )
 
 target_include_directories(
@@ -85,4 +86,22 @@ target_link_libraries(
 add_test(
     NAME ProcfsReaderTests
     COMMAND procfs_reader_tests
+)
+
+# ProcessMonitor tests
+
+add_executable(
+    process_monitor_tests
+    tests/test_process_monitor.cpp
+)
+
+target_link_libraries(
+    process_monitor_tests
+    PRIVATE
+    profiler_core
+)
+
+add_test(
+    NAME ProcessMonitorTests
+    COMMAND process_monitor_tests
 )
